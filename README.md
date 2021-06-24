@@ -278,12 +278,12 @@ port = 3306
         
         ```python
         def updateRowById(db_connection,
-                        table_name: str,
-                        eid: str,
-                        title: str,
-                        rg_id: str,
-                        overview: str,
-                        close_connection_afterward: bool = True) -> List[tuple]:
+                          table_name: str,
+                          eid: str,
+                          title: str,
+                          rg_id: str,
+                          overview: str,
+                          close_connection_afterward: bool = True) -> List[tuple]:
             """
             Public function. Query full table data. 
 
