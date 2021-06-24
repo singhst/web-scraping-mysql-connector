@@ -190,10 +190,6 @@ port = 3306
         <summary>`readTableAll()`...</summary>
         
         ```python
-        <details>
-        <summary>`readTableAll()`...</summary>
-        
-        ```python
         def readTableAll(db_connection,
                          table_name: str,
                          close_connection_afterward: bool = True) -> List[tuple]:
