@@ -4,6 +4,14 @@ Modules to handle the data (mainly Movie related) scraped from www.reelgood.com.
 
 Perfrom CRUD using Python.
 
+| Operation | Module name |
+| --------- | ----------- |
+| Set up db | `localConfig.env`, `setupDatabase.py`, `checkCreateTable.py` |
+| Create | `insert.py` |
+| Read | `readTable.py` |
+| Update | `update.py` |
+| Delete | `[xxx]` |
+
 
 ## Usage
 
