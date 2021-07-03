@@ -6,7 +6,7 @@ import datetime
 from re import T
 from mysql.connector import Error as mysqlError
 import pandas as pd
-from typing import List
+from typing import Iterable, List
 
 from helperFunc import getRecordsCount
 
@@ -15,17 +15,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def insertARowToDb(db_connection,
-                   table_name: str = '',
-                   rg_id: str = '',
-                   title: str = '',
-                   year: str = '',
-                   overview: str = '',
-                   rating: str = '',
-                   imdb_score: str = '',
-                   reelgood_rating_score: str = '',
-                   url_offset_value: str = '-1',
-                   close_connection_afterward: bool = True) -> int:
+def insertARowToMovie(db_connection,
+                      table_name: str = '',
+                      rg_id: str = '',
+                      title: str = '',
+                      year: str = '',
+                      overview: str = '',
+                      rating: str = '',
+                      imdb_score: str = '',
+                      reelgood_rating_score: str = '',
+                      url_offset_value: str = '-1',
+                      close_connection_afterward: bool = True) -> int:
     """
     Public function. Add one record to MySQL database. 
 
@@ -43,8 +43,12 @@ def insertARowToDb(db_connection,
 
     record = [(rg_id, title, year, overview, rating, imdb_score, reelgood_rating_score, url_offset_value)]
 
-    added_row_count = _tryAddRecordToDb(db_connection, table_name, record, close_connection_afterward)
-
+    sql_query, table_name = getSqlQuery(db_table_name=table_name)
+    added_row_count = _tryAddRecordToDb(db_connection, 
+                                        table_name=table_name, 
+                                        sql_query=sql_query, 
+                                        record=record,
+                                        close_connection_afterward=close_connection_afterward)
     return added_row_count
 
 
@@ -57,9 +61,10 @@ def insertNRowsToDb(db_connection,
 
         Args:
             db_connection:  `(class) MySQLConnection`, Connection to a MySQL Server
-            table_name:     `str`, the table you want to insert data in
+            table_name:     `str`, the table you want to insert data in. 
+                            E.g. `movie` or `availability` table
             record:         `List[tuple]`, data to save into database
-                            e.g. `[(data1, data2, ...), (...), ...]`
+                            E.g. `[(data1, data2, ...), (...), ...]`
                             
                             `record = [(rg_id, title, year, overview, rating, imdb_score, reelgood_rating_score, url_offset_value)]`
 
@@ -73,15 +78,20 @@ def insertNRowsToDb(db_connection,
     print(f'mysql> Inserting {len(record)} record into `{table_name}` table in `{db_connection.database}` database... ', end='')
 
 
-    added_row_count = _tryAddRecordToDb(db_connection, table_name, record, close_connection_afterward)
-
+    # added_row_count = _tryAddRecordToDb(db_connection, table_name, record, close_connection_afterward)
+    sql_query, table_name = getSqlQuery(db_table_name=table_name)
+    added_row_count = _tryAddRecordToDb(db_connection, 
+                                        table_name=table_name, 
+                                        sql_query=sql_query, 
+                                        record=record,
+                                        close_connection_afterward=close_connection_afterward)
     return added_row_count
 
 
 def insertPandasDfToDb(db_connection,
-                       table_name: str,
-                       df: pd.DataFrame,
-                       close_connection_afterward: bool = True) -> int:
+                          table_name: str,
+                          df: pd.DataFrame,
+                          close_connection_afterward: bool = True) -> int:
     """
     Public function. Add records to MySQL database. 
 
@@ -100,17 +110,56 @@ def insertPandasDfToDb(db_connection,
         Returns:
             `int`: no. of rows added to database
     """
+    print(f'mysql> Inserting {len(df)} record into `{table_name}` table in `{db_connection.database}` database... ', end='')
 
     record = list(df.to_records(index=False))
 
-    added_row_count = insertNRowsToDb(db_connection, table_name, record, close_connection_afterward)
-
+    # added_row_count = insertNRowsToDb(db_connection, table_name, record, close_connection_afterward)
+    
+    sql_query, table_name = getSqlQuery(db_table_name=table_name)
+    added_row_count = _tryAddRecordToDb(db_connection, 
+                                        table_name=table_name, 
+                                        sql_query=sql_query, 
+                                        record=record,
+                                        close_connection_afterward=close_connection_afterward)
     return added_row_count
+
+
+def getSqlQuery(db_table_name: str='movie') -> Iterable[str]:
+    """Get the SQL query by table name.
+    """
+    query = ''
+    if db_table_name == 'movie':
+        query = f'''
+            INSERT INTO {db_table_name} (
+                rg_id,
+                scraped_timestamp,
+                title, 
+                year, 
+                overview,
+                rating, 
+                imdb_score, 
+                reelgood_rating_score,
+                url_offset_value
+            ) 
+            VALUES''' + '(%s, NOW(), %s, %s, %s, %s, %s, %s, %s);'
+    elif db_table_name == 'availability':
+        query = f'''
+            INSERT INTO {db_table_name} (
+                scraped_timestamp,
+                rg_id, 
+                source_name,
+                source_movie_id,
+                source_web_link
+            )
+            VALUES''' + '(NOW(), %s, %s, %s, %s);'
+    return query, db_table_name
 
 
 def _tryAddRecordToDb(db_connection,
                       table_name: str,
-                      record: List[tuple],
+                      sql_query: str,
+                      record: List[str],
                       close_connection_afterward: bool) -> int:
     """
     Private function. Add record(s) to MySQL database. 
@@ -127,20 +176,6 @@ def _tryAddRecordToDb(db_connection,
     """
 
     db_cursor = db_connection.cursor()
-
-    sql_query = f'''
-        INSERT INTO {table_name} (
-            rg_id,
-            scraped_timestamp,
-            title, 
-            year, 
-            overview,
-            rating, 
-            imdb_score, 
-            reelgood_rating_score,
-            url_offset_value
-            ) 
-        VALUES''' + '(%s, NOW(), %s, %s, %s, %s, %s, %s, %s);'
 
     added_row_count = 0
 
